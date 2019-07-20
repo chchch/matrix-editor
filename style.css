@@ -66,7 +66,7 @@ body {
 }
 
 #views > div#splash {
-    height: 200px;
+    height: 350px;
     text-align: center;
     align-self: center;
 }
@@ -92,10 +92,26 @@ svg text {
     cursor: pointer;
 }
 
-.witness {
+.witness, .internal {
     font-size: 0.9rem;
     font-variant: small-caps;
     cursor: pointer;
+    vertical-align: bottom;
+}
+
+.internal {
+    display: inline-block;
+    position: relative;
+    left: -3px;
+}
+
+.internal:hover {
+    color: red;
+}
+
+.internal svg {
+    display: inline-block;
+    vertical-align: bottom;
 }
 
 .witness::after {

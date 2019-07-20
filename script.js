@@ -76,7 +76,7 @@ const normalize = function(lemma,next,both=false) {
 
     const arr = clean1
         // geminated consonants after r
-        .replace(/([rṛi])([gjṭṇdnbmyv])\2/,"$1$2")
+        .replace(/([rṛi])([kgcjṭḍṇdnpbmyvl])\2/,"$1$2")
         // geminated t
         .replace(/([rṛri]|pa)tt/,"$1t")
         .replace(/tt(?=[rvy])/,'t')
@@ -1207,6 +1207,9 @@ const csvLoad = function(f,e) {
          greyout: check.anyhighlit,
          func: edit.startRemoveCol.bind(null,false)
         },
+        {text: 'Delete empty lemmata',
+         func: edit.startRemoveEmpty
+        },
         {text: 'Merge',
          greyout: check.manyhighlit,
          func: edit.startMerge.bind(null,false)
@@ -1497,10 +1500,33 @@ const treeMouseover = function(e) {
     const targ = e.target.classList.contains('tree-lemma') ?
         e.target :
         e.target.closest('.tree-lemma');
+
     if(targ) {
         multi.highlightTreeLemma(targ.dataset.id);
     targ.addEventListener('mouseout',multi.unhighlightTrees);
     }
+    
+    const title = e.target.dataset.reconstructed;
+    if(!title) return;
+
+    const box = document.createElement('div');
+    box.id = 'tooltip';
+    box.style.top = e.pageY + 'px';//(e.clientY + 10) + 'px';
+    box.style.left = e.pageX + 'px';//e.clientX + 'px';
+    box.style.opacity = 0;
+    box.style.transition = 'opacity 0.2s ease-in';
+    _viewdiv.parentElement.appendChild(box);
+
+    const textbox = document.createElement('div');
+    textbox.appendChild(document.createTextNode(title));
+    this.script !== 0 ? // this is bound to the TreeBox 
+        box.appendChild(changeScript(textbox,_scripts[this.script])) :
+        box.appendChild(textbox);
+
+    window.getComputedStyle(box).opacity;
+    box.style.opacity = 1;
+    
+    e.target.addEventListener('mouseout', removeBox);
 }
 
 const treeClick = function(e) {
@@ -1579,7 +1605,7 @@ const textMouseup = function() {
     clearSelection();
 }
 
-const lemmaMouseover = function(e) {
+/*const lemmaMouseover = function(e) {
     
     const title = e.target.dataset.title;
     if(!title) return;
@@ -1600,6 +1626,7 @@ const lemmaMouseover = function(e) {
     
     e.target.addEventListener('mouseout', removeBox);
 };
+*/
 
 const menuMouseover = function(e) {
     const targ = e.target.classList.contains('menubox') ?
@@ -1920,6 +1947,24 @@ const edit = {
             else {
                 const args = toremove.map(s => [edit.doUngroup,[s]])
                                      .concat([[edit.doRemoveCol,[numss]]]);
+                edit.doMulti(args,'do');
+            }
+        }
+    },
+
+    startRemoveEmpty: function() {
+        const nums = find.empty();
+        const clgroups = find.clauses(nums);
+        if(!clgroups) {
+            edit.doRemoveCol(nums,'do');
+        }
+        else {
+            const toremove = find.clausesToRemove(clgroups,nums,1);
+            if(!toremove)
+                edit.doRemoveCol(nums,'do');
+            else {
+                const arts = toremove.map(s => [edit.doUngroup,[s]])
+                                     .concat([[edit.doRemoveCol,[nums]]]);
                 edit.doMulti(args,'do');
             }
         }
@@ -2518,9 +2563,16 @@ const view = {
         _matrix.updatescript();
         for(const textbox of _textboxes)
             textbox.updatescript();
-        for(const tree of _trees)
+/*        for(const tree of _trees) {
+            tree.fitch();
             tree.updatescript();
+        } */
+        if(!check.anyhighlit())
+            multi.clearTrees();
+        else
+            multi.repopulateTrees(...find.lowhigh(find.highlit()));
         view.updateAllHeaders(true);
+        view.xScroll([...find.highlit()][0]);
     },
     
     normalizeAll: function() {
@@ -2705,9 +2757,9 @@ const view = {
     },
 
     unnormalize: function(cell) {
-        if(cell.IAST)
+        if(cell.hasOwnProperty('IAST'))
             cell.textContent = cell.IAST.textContent;
-        if(cell.dataset.hasOwnProperty('normal'))
+        if(cell.hasOwnProperty('dataset') && cell.dataset.hasOwnProperty('normal'))
             delete cell.dataset.normal;
         if(cell.getAttribute('lemma'))
             cell.removeAttribute('lemma');
@@ -2876,7 +2928,13 @@ const find = {
         //const par = el ? el : _matrix.boxdiv;
         return par.querySelectorAll('.lemma[data-normal], .tree-lemma[data-normal]');
     },
-   
+    
+    reading: function(el) {
+        return check.normalizedView() && el.dataset.normal ?
+            el.dataset.normal :
+            el.IAST.textContent;
+    },
+    
     ths: function() {
         return _matrix.boxdiv.querySelectorAll('th[data-ref]');
     },
@@ -2941,6 +2999,7 @@ const find = {
         else if(el.hasAttribute('data-ref')) return 'data-ref';
         else return false;
     },
+
     clauses: function(nums,strict = false) {
         const firstrow = find.firsttext();
         var someungrouped = false;
@@ -2981,6 +3040,25 @@ const find = {
         return [...toremove];
     },
     
+    empty: function() {
+        const emptyset = new Set();
+        const trs = [...find.trs()];
+        const trWalkers = trs.map(el => find.trWalker(el));
+        const max = trs[0].querySelector('td:last-of-type').dataset.n;
+        for(let n=0;n<=max;n++) {
+            var emptylemma = true;
+            for(const walker of trWalkers) {
+                const word = walker.nextNode();
+                if(emptylemma) {
+                    if(word.textContent !== '')
+                        emptylemma = false;
+                }
+            }
+            if(emptylemma) emptyset.add(n);
+        }
+        return emptyset;
+    },
+
     prevNonempty: function(index,arr) {
         for(let n=index;n>=0;n--) {
             const td = arr[n];
@@ -3003,6 +3081,28 @@ const find = {
             if(td.textContent !== '') return n;
         }
         return false;
+    },
+
+    setIntersection: function(...sets) {
+        const setA = sets[0];
+        return new Set(
+            [...setA].filter(el => {
+                for(let n=1;n<sets.length;n++) {
+                    if(!sets[n].has(el))
+                        return false;
+                }
+                return true;
+            })
+        );
+    },
+
+    setUnion: function(...sets) {
+        return new Set(
+            sets.reduce((acc, cur) => {
+                acc = [...acc,...cur];
+                return acc;
+            },[])
+        );
     },
 
 }
@@ -3362,7 +3462,7 @@ class TreeBox extends Box {
         } while(document.getElementById(divid));
         treediv.id = divid;
         this.boxdiv = treediv;
-        this.boxdiv.addEventListener('mouseover',treeMouseover);
+        this.boxdiv.addEventListener('mouseover',treeMouseover.bind(this));
         this.boxdiv.addEventListener('click',treeClick);
         this.svgcontainer = document.createElement('div');
         this.svgcontainer.id = this.boxdiv.id + 'container';
@@ -3370,8 +3470,11 @@ class TreeBox extends Box {
         
         //const parser = new DOMParser();
         ///this.nexml = parser.parseFromString(_treelist.get(this.name),'text/xml');
-        this.nexml = _treelist.get(this.name);
+        this.nexml = _treelist.get(this.name).cloneNode(true);
         this.calcPaths();
+        this.jiggleroot();
+        this.findLevels();
+        this.labelInternal();
     }
     show() {
         _descs.appendChild(this.descbox);
@@ -3399,14 +3502,14 @@ class TreeBox extends Box {
             }
             if(oldedge) {
                 const newroot = this.nexml.createElementNS(oldroot.namespaceURI,'node');
-                newroot.id = 'root';
+                newroot.id = 'fakeroot';
                 newroot.setAttribute('root','true');
                 oldroot.removeAttribute('root');
                 oldroot.parentElement.insertBefore(newroot,oldroot);
                 const newedge = this.nexml.createElementNS(oldroot.namespaceURI,'edge');
                 newedge.id = "newrootedge";
                 newedge.setAttribute('length','0');
-                newedge.setAttribute('source','root');
+                newedge.setAttribute('source','fakeroot');
                 newedge.setAttribute('target',oldroot.id);
                 oldroot.parentElement.insertBefore(newedge,oldedge);
             
@@ -3415,6 +3518,134 @@ class TreeBox extends Box {
         }
     }
     
+    findLevels() {
+        const alledges = this.nexml.querySelectorAll('edge');
+        const taxa = [...this.nexml.querySelectorAll('node[otu]')];
+        const tree = this.nexml;
+        this.levels = [taxa];
+
+        const getNextLevel = function(curlevel,edges) {
+            const ids = curlevel.map(t => t.id);
+            const dups = new Map();
+            const nodups = new Map();
+            const usededges = [];
+            for (const e of edges) {
+                    const target = e.getAttribute('target');
+                    const source = e.getAttribute('source');
+                    const group = (() => {
+                        if(ids.indexOf(target) !== -1)
+                            return {ancestor: tree.querySelector(`node[id="${source}"]`),
+                                    child: tree.querySelector(`node[id="${target}"]`)};
+                        else if(ids.indexOf(source) !== -1)
+                            return {ancestor: tree.querySelector(`node[id="${target}"]`),
+                                    child: tree.querySelector(`node[id="${source}"]`)};
+                        else
+                            return null;
+                            })();
+                    if(group !== null) {
+                        if(nodups.has(group.ancestor)) {// duplicate
+                            const othergroup = nodups.get(group.ancestor);
+                            dups.set(group.ancestor,[othergroup.child, group.child]);
+                            usededges.push(e);
+                            usededges.push(othergroup.edge);
+                        }
+                        else nodups.set(group.ancestor,{child: group.child, edge: e});
+                    }
+            }
+            const dupkeys = [...dups.keys()];
+            const leftovers = [...nodups.keys()].reduce((acc,key) => {
+                if(dupkeys.indexOf(key) === -1)
+                    acc.push(nodups.get(key).child);
+                return acc;
+            },[]);
+            
+            const unusededges = [...edges].reduce((acc,e) => {
+                if(usededges.indexOf(e) === -1)
+                    acc.push(e);
+                return acc;
+            },[]);
+
+            return {match: dups, remainder: [...new Set(leftovers)],edges: unusededges};
+        }
+
+        var curnodes = taxa;
+        var curedges = alledges;
+        do {
+            const nextlevel = getNextLevel(curnodes,curedges);
+            this.levels.push(nextlevel.match);
+            curnodes = [...nextlevel.match.keys(),...nextlevel.remainder];
+            curedges = nextlevel.edges;
+        } while (curedges.length > 0);
+    }
+
+    labelInternal() {
+        for(const node of this.nexml.querySelectorAll('node:not([label])'))
+            node.setAttribute('label',node.id);
+    }
+
+    fitch1() {
+        const firstpass = new Map();
+        for(const taxon of this.levels[0]) {
+            const label = taxon.getAttribute('label');
+            const reading = find.reading(this.boxdiv.querySelector(`span.tree-lemma[data-id="${label}"]`));
+            firstpass.set(taxon,new Set([reading]));
+        }
+        for(let m=1;m<this.levels.length;m++) { // start at 1 (after taxa)
+            for(const [node,children] of this.levels[m]) {
+                const readings = children.map(node => firstpass.get(node));
+                const intersection = find.setIntersection(...readings);
+                const result = intersection.size > 0 ?
+                    intersection :
+                    find.setUnion(...readings);
+                firstpass.set(node,result);
+
+            }
+        }
+        return firstpass;
+
+    }
+
+    fitch2(firstpass) {
+        const taxa = [...this.nexml.querySelectorAll('node[otu]')];
+        const secondpass = new Map();
+
+        for(const [node,children] of this.levels[this.levels.length-1]) {
+            secondpass.set(node,firstpass.get(node));
+        }
+
+        for(let n=this.levels.length-1;n>1;n--) {
+            for(const [node,children] of this.levels[n]) {
+                const ancestral = secondpass.get(node);
+                for(const child of children) {
+                    if(taxa.indexOf(child) !== -1)
+                        continue;
+                    const childreading = firstpass.get(child);
+                    const intersection = find.setIntersection(ancestral,childreading);
+                    const result = intersection.size > 0 ?
+                        intersection :
+                        childreading;
+
+                    secondpass.set(child,result);
+                }
+            }
+        }
+        return secondpass;
+    }
+
+    fitch() {
+        const firstpass = this.fitch1();
+        this.reconstructed = this.fitch2(firstpass);
+        const secondpass = this.fitch2(firstpass);
+        for(const [node,reading] of secondpass) {
+            const htmlnode = this.boxdiv.querySelector(`span.internal[data-key="${node.id}"]`);
+            const output = [...reading].map(str => str.trim() === '' ? '_' : str);
+            htmlnode.dataset.reconstructed = output.length === 1 ? 
+                output[0] :
+                "{" + output.join(', ') + "}";
+        }
+         
+    }
+
     clearsvg() {
         while(this.svgcontainer.firstChild)
             this.svgcontainer.removeChild(this.svgcontainer.firstChild);
@@ -3465,7 +3696,6 @@ class TreeBox extends Box {
     }
     draw() {
         this.clear();
-        this.jiggleroot();
         this.drawlines();
         this.makeLabels();
     }
@@ -3489,13 +3719,17 @@ class TreeBox extends Box {
             newEl.style.left = offleft + 'px';
             newEl.style.top = offtop + 'px';
             const key = txt.textContent.trim();//.replace(/[-_]/g,'');
-            if(texts.has(key)) {
-                newEl.innerHTML = `<span class="witness inactive" data-key="${key}">${key}</span>`;
-            
-                //let cur = _texts.get(key).text[n] || '';
-                //newEl.innerHTML = newEl.innerHTML + '<span class="tree-lemma" id="'+key+'">'+cur+'</span>';
-            }
-                newEl.innerHTML = newEl.innerHTML + '<span class="tree-lemma '+key+'" data-id="'+key+'"></span>';
+            newEl.innerHTML =
+/*                (texts.has(key) ?
+                    `<span class="witness inactive" data-key="${key}">${key}</span>` :
+                    `<span class="internal" data-key="${key}">${key}</span>`)
+                + '<span class="tree-lemma '+key+'" data-id="'+key+'"></span>';
+*/
+                texts.has(key) ?
+                    `<span class="witness inactive" data-key="${key}">${key}</span><span class="tree-lemma ${key}" data-id="${key}"></span>` :
+                    key !== 'fakeroot' ?
+                        `<span class="internal" data-key="${key}">0</span>` :
+                        `<span class="internal" data-key="${key}"></span>`;
             //while(txt.firstChild)
             //    txt.removeChild(txt.firstChild);
             txt.parentElement.removeChild(txt);
@@ -3570,6 +3804,7 @@ class TreeBox extends Box {
         const inactive = this.boxdiv.querySelectorAll('.inactive');
         for(const label of inactive)
             label.classList.remove('inactive');
+        this.fitch();
     }
 
     calcPaths() {
@@ -3634,7 +3869,7 @@ class TreeBox extends Box {
         const lemmata = [];
         const aliases = [];
 
-        for(const [key,value] of _texts) {
+/*        for(const [key,value] of _texts) {
             const lemma = m ?
                 multiLemmaConcat(value.text.slice(n,parseInt(m)+1)) :
                 makeLgLemma(value.text[n]);
@@ -3655,8 +3890,39 @@ class TreeBox extends Box {
                 if(clean !== lemma)
                     aliases[key] = clean;
             }
+        } */
+        for(const text of find.texts()) {
+            const key = text.parentNode.getAttribute('n');
+            const lemma = m ?
+                multiLemmaConcat(
+                    Array.from(Array(parseInt(m)-n+1).keys(), p => p+n)
+                        .map(x => find.firstword(x,text).textContent)) :
+                makeLgLemma(find.firstword(n,text).textContent);
+            if(lemma === '')
+                if(lemmata.hasOwnProperty(''))
+                    lemmata[''].push(key);
+                else
+                    lemmata[''] = [key];
+            else { // normalization dealt with elsewhere now
+                if(lemmata.hasOwnProperty(lemma))
+                    lemmata[lemma].push(key);
+                else
+                    lemmata[lemma] = [key];
+/*                const next_lemma = m ?
+                    findNextLemma2(value.text,m) :
+                    findNextLemma2(value.text,n);
+                const clean = normalize(lemma,next_lemma);
+                if(lemmata.hasOwnProperty(clean))
+                    lemmata[clean].push(key)
+                else lemmata[clean] = [key];
+
+                if(clean !== lemma)
+                    aliases[key] = clean;
+ */
+            }
         }
         const longestPaths = {};
+        console.log(lemmata);
         for(const lemma of Object.keys(lemmata)) {
             var longest = {length: 0, branch_length: 0, paths: []};
             if(lemmata[lemma].length === 1) {
@@ -3900,7 +4166,7 @@ return {
         _viewdiv = document.getElementById('views');
         _descs = document.getElementById('descs');
         _viewdiv.addEventListener('click',textClick);
-        _viewdiv.addEventListener('mouseover',lemmaMouseover);
+//        _viewdiv.addEventListener('mouseover',lemmaMouseover);
         document.addEventListener('keydown',keyDown);
         document.addEventListener('contextmenu',rightClick);
         document.addEventListener('mouseup',contextMenu.remove);

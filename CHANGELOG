@@ -1,0 +1,11 @@
+0.2 (2019-07-19)
+
+* implemented ancestral reconstruction by Fitch's algorithm
+* improved normalization routine (added geminated k,c, and p after r)
+* new action: delete empty lemmata
+* bug fixes
+
+
+0.1 (2019-07-16)
+
+* initial commit
