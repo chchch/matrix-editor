@@ -3891,13 +3891,24 @@ class TreeBox extends Box {
                     aliases[key] = clean;
             }
         } */
+        const getReading = check.normalizedView() ?
+            function(n,text) {
+                const word = find.firstword(n,text);
+                return word.hasAttribute('lemma') ?
+                    word.getAttribute('lemma') :
+                    word.textContent;
+            } :
+            function(n,text) {
+                return find.firstword(n,text).textContent;
+            };
         for(const text of find.texts()) {
             const key = text.parentNode.getAttribute('n');
             const lemma = m ?
                 multiLemmaConcat(
                     Array.from(Array(parseInt(m)-n+1).keys(), p => p+n)
-                        .map(x => find.firstword(x,text).textContent)) :
-                makeLgLemma(find.firstword(n,text).textContent);
+                        .map(x => getReading(x,text))
+                ) :
+                makeLgLemma(getReading(n,text));
             if(lemma === '')
                 if(lemmata.hasOwnProperty(''))
                     lemmata[''].push(key);
@@ -3922,7 +3933,6 @@ class TreeBox extends Box {
             }
         }
         const longestPaths = {};
-        console.log(lemmata);
         for(const lemma of Object.keys(lemmata)) {
             var longest = {length: 0, branch_length: 0, paths: []};
             if(lemmata[lemma].length === 1) {
