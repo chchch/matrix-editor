@@ -38,7 +38,9 @@ const makeLgLemma = function(str) {
 const multiLemmaConcat = function(arr) {
     return arr.map(lemma => {
         return makeLgLemma(lemma);
-   }).join(' ');
+   }).join(' ')
+   .replace(/\s+/g,' ')
+   .trim();
 }
 
 const findNextLemma = function(lemma) {
@@ -2857,7 +2859,10 @@ const find = {
     basename: function() {
         return _filename.split(/\.[^.]+$/)[0];
     },
-    
+    range: function(a,b) {
+        return Array.from(Array(parseInt(b)-parseInt(a)+1).keys(), x => x+a);
+    },
+
     lemmata: function(num,par) {
         const el = par ? par : document.querySelector('#views');
         return num === false ?
@@ -3776,7 +3781,7 @@ class TreeBox extends Box {
                     if(word.hasAttribute('lemma'))
                         normarr[x-n] = word.getAttribute('lemma');
                 }
-                el.IAST.appendChild(XSLTransformString(arr.join(' '),proc));
+                el.IAST.appendChild(XSLTransformString(arr.join(' ').replace(/\s+/g,' ').trim(),proc));
                 if(normarr.length !== 0) {
                     const newarr = arr.slice(0).map((e,i) =>
                         normarr.hasOwnProperty(i) ?
@@ -3784,7 +3789,7 @@ class TreeBox extends Box {
                             e
                     );
                     const temp = document.createElement('span');
-                    temp.appendChild(XSLTransformString(newarr.join(' '),proc));
+                    temp.appendChild(XSLTransformString(newarr.join(' ').replace(/\s+/g,' ').trim(),proc));
                     el.dataset.normal = temp.innerHTML;
                 }
             }
@@ -3905,8 +3910,8 @@ class TreeBox extends Box {
             const key = text.parentNode.getAttribute('n');
             const lemma = m ?
                 multiLemmaConcat(
-                    Array.from(Array(parseInt(m)-n+1).keys(), p => p+n)
-                        .map(x => getReading(x,text))
+                    //Array.from(Array(parseInt(m)-n+1).keys(), p => p+n)
+                    find.range(n,m).map(x => getReading(x,text))
                 ) :
                 makeLgLemma(getReading(n,text));
             if(lemma === '')
