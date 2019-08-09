@@ -66,7 +66,7 @@ body {
 }
 
 #views > div#splash {
-    height: 350px;
+    height: 400px;
     text-align: center;
     align-self: center;
 }
@@ -347,6 +347,10 @@ hr {
     background-color: #ccd5e5;
 }
 
+.emphasis {
+    font-weight: bold;
+}
+
 .invisible {
     display: none;
 }
@@ -456,6 +460,14 @@ td[data-binary='true']:empty {
     background-color: rgb(219,219,219);
 }
 
+td[data-emended='true'] {
+    border: 2px dotted rgb(230,152,174);
+}
+
+td.pending {
+    background-color: rgb(230,230,230);
+}
+
 .matrix td.group-start {
     border-right: 0;
     border-left: 4px solid #e5e9f5;
@@ -545,11 +557,27 @@ td.highlit.highlitcell, td.highlit.highlitcell:empty {
     background: rgba(50,50,50,0.5);
 }
 
-#exportoptions {
+.popup {
     max-width: 50%;
     background: white;
     padding: 10px;
     font-size: 0.7em;
+}
+
+#spinner {
+    display: inline-block;
+    width: 0.8em;
+    height: 0.8em;
+    border: 3px solid rgba(255,255,255,.3);
+    border-radius: 50%;
+    border-top-color: #fff;
+    animation: spin 1s ease-in-out infinite;
+    vertical-align: bottom;
+    margin-right: 0.5em;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
 }
 
 /*.matrix td.highlit::before {
