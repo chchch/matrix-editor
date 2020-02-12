@@ -9,7 +9,7 @@ const _teins = 'http://www.tei-c.org/ns/1.0';
 //var _xml = document.createElementNS('http://www.tei-c.org/ns/1.0','group');
 //var _xml = document.createElementNS('http://www.w3.org/1999/xhtml','group');
 var _texts = [];
-var _editions = [];
+//var _editions = [];
 var _treelist = new Map();
 var _trees = [];
 var _textboxes = [];
@@ -76,7 +76,7 @@ const normalize = function(lemma,next,both=false) {
 
     const arr = clean1
         // geminated consonants after r
-        .replace(/([rṛi])([kgcjṭḍṇdnpbmyvl])\2/,"$1$2")
+        .replace(/([rṛi])([kgcjṭḍṇdnpbmyvl])\2{1,2}/,"$1$2")
         // geminated t
         .replace(/([rṛri]|pa)tt/,"$1t")
         .replace(/tt(?=[rvy])/,'t')
@@ -609,6 +609,7 @@ const csvToFrag = function(csv) {
     return retfrag;
 }
 
+/*
 const reconstructText = function() {
     let fulltext = [];
     for(let el of _textdiv.getElementsByClassName('lemma')) {
@@ -690,6 +691,7 @@ const reconstructLemma = function(paths) {
     }
     return {lemma: longest_lemma, path: cur_longest, aliases: aliases}; 
 }
+*/
 
 /*** Same-window view-updating functions ***/
 
@@ -891,7 +893,8 @@ const newBox = {
     },
 
     text: function(name,map) {
-        const newEd = new EdBox(name,map);
+        const newEd = new EdBox(name);
+        //const newEd = new EdBox(name,map);
         _textboxes.push(newEd);
         newEd.init();
         newEd.show();
@@ -1163,7 +1166,7 @@ const csvLoad = function(f,e) {
         teicorpus.appendChild(teiheader);
         _xml.appendChild(teicorpus);
         const csvstr = e.target.result;
-        csvarr = csvstr.split(/\n+/)
+        csvarr = csvstr.trim().split(/\n+/)
                          .map(s => s.replace(/""/g,'').split(','))
                          .map(a => {
                  const name = a.shift();
@@ -1216,11 +1219,13 @@ const csvLoad = function(f,e) {
     //_maxlemma = find.firsttext().lastElementChild.getAttribute('n');
     _maxlemma = find.maxlemma();
 
-    var mss = Array.from(_texts.keys());
-    mss.sort();
+    //var mss = Array.from(_texts.keys());
+    //mss.sort();
     var msshtml = '';
+    const mss = [...find.teis()].map(el => el.getAttribute('n'));
     for(const ms of mss)
-        msshtml += `<li data-name="${ms}">${_texts.get(ms).desc}</li>`;
+    //    msshtml += `<li data-name="${ms}">${_texts.get(ms).desc}</li>`;
+        msshtml += `<li data-name="${ms}">${ms}</li>`;
     document.getElementById('menu').querySelector('.ms').innerHTML = msshtml;
     const expbox = new menuBox('Export');
     expbox.populate([
@@ -1575,9 +1580,11 @@ const treeMouseover = function(e) {
 
 const treeClick = function(e) {
     if(e.target.classList.contains('witness'))
-        newBox.text(e.target.dataset.key,_texts);
+        newBox.text(e.target.dataset.key);
+        //newBox.text(e.target.dataset.key,_texts);
     else if(e.target.classList.contains('reconstructed'))
-        newBox.text(e.target.dataset.label,_texts);
+        newBox.text(e.target.dataset.label);
+        //newBox.text(e.target.dataset.label,_texts);
     else if(e.target.classList.contains('internal'))
         edit.startReconstruction(e);
     
@@ -1713,13 +1720,16 @@ const menuMouseout = function(e) {
 }
 const menuClick = function(e) {
     if(!e.target.parentElement) return;
+/*
     if(e.target.parentElement.className === 'ed') {
         menuMouseout(e);
         newBox.text(e.target.dataset.name,_editions);
     }
+*/
     if(e.target.parentElement.className === 'ms') {
         menuMouseout(e);
-        newBox.text(e.target.dataset.name,_texts);
+        newBox.text(e.target.dataset.name);
+        //newBox.text(e.target.dataset.name,_texts);
     }
     if(e.target.parentElement.className === 'tree') {
         menuMouseout(e);
@@ -3745,7 +3755,8 @@ class Box {
             window.mainWindow :
             window;
         newWindow.startbox = this.text ?
-            {text: {name: this.name, map: this.map}} :
+            //{text: {name: this.name, map: this.textmap}} :
+            {text: {name: this.name}} :
             {tree: this.name};
         newWindow.mainWindow.comboView.addWindow(newWindow);
     }
@@ -4420,14 +4431,15 @@ class TreeBox extends Box {
 }
 
 class EdBox extends Box {
-    constructor(name,arr) {
+//    constructor(name,arr) {
+    constructor(name) {
         super(name);
-        this.map = arr;
+//        this.textmap = arr;
         //this.desc = arr.get(name).desc;
         this.desc = name;
         this.text = find.firsttext(name);
         //this.text = arr.get(name).text;
-        this.name = name;
+        //this.name = name;
     }
     init() {
         this.makeTextBox();
@@ -4640,7 +4652,7 @@ const worker = {
                     }
                 }
             }
-            return secondpass;
+            return secondpass.get(target);
         }
 
         const fitch = function(target,n) {
@@ -4652,7 +4664,6 @@ const worker = {
             // do the second pass if the first pass is inconclusive
             const formatOutput = function(m) {
                      if(m.size === 1) return [...m][0].trim();
-
                      const output = [...m].map(str => str.trim() === '' ? '_' : str);
                      return output.length === 1 ? output[0] : "{" + output.join(', ') + "}";
             }
