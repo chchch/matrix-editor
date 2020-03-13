@@ -460,7 +460,7 @@ td[data-binary='true']:empty {
     background-color: rgb(219,219,219);
 }
 
-td[data-emended='true'] {
+td[data-emended='true'], span.lemma[data-emended='true'] {
     border: 2px dotted rgb(230,152,174);
 }
 
