@@ -180,7 +180,7 @@ const to = {
             .replace(/([ḍdrmvynhs]) ([aāiīuūṛeoéó])/g, '$1$2'+placeholder)
         
         // remove space between a word that ends in a consonant and a word that begins with a consonant
-            .replace(/([kgcjṭḍtdpb]) h/g, '$1_'+placeholder+'h')
+            .replace(/([kgcjṭḍtdpb]) h/g, '$1\u200C'+placeholder+'h')
             .replace(/([kgcjñḍtdnpbmrlyvśṣsṙ]) ([kgcjṭḍtdnpbmyrlvśṣshḻ])/g, '$1'+placeholder+'$2')
 
         // join final o/e/ā and avagraha/anusvāra
