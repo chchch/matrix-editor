@@ -2041,7 +2041,7 @@ const edit = {
             if(!toremove)
                 edit.doRemoveCol(nums,'do');
             else {
-                const arts = toremove.map(s => [edit.doUngroup,[s]])
+                const args = toremove.map(s => [edit.doUngroup,[s]])
                                      .concat([[edit.doRemoveCol,[nums]]]);
                 edit.doMulti(args,'do');
             }
